@@ -22,6 +22,10 @@ In `nom`, to support all 128 bits that can make up an Urbit address, `lib/bn` is
 
 PRs welcome!
 
+## Dependencies
+
+* [user-none/lua-nums](https://github.com/user-none/lua-nums) (just the bignum implementation)
+
 ## License
 
 MIT License.
