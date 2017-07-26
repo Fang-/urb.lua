@@ -6,17 +6,27 @@
 
 ## Functionality
 
-* urb core
-  * Coming Soon™
-* nom: ship name to/from address number conversion
-  * function numtoname ( address number ) => ship name
-  * function nametonum ( ship name ) => address number
+```
+--------------------------------------------------------------------------------
+core -- urbit http communication
+* Coming Soon™
+--------------------------------------------------------------------------------
+urb.nom -- ship names & numbers
+* nume ( ship name )
+    => address number
+* nome ( address number )
+    => ship name
+* clan ( ship name or address number (int or bn) )
+    => "galaxy", "star", "planet", "moon" or "comet"
+* sein ( ship name or address number (int or bn) )
+    => parent name or address number
+```
 
 ## Usage
 
 Just like `local urb = require("urb")`.
 
-In `nom`, to support all 128 bits that can make up an Urbit address, `lib/bn` is used for numbers. If your address is larger than can be stored in a Lua integer, use `lib/bn` to pass in `bn("number")` instead.
+In `nom`, to support all 128 bits that can make up an Urbit address, `lib/bn` is used for numbers. If your address is larger than can be stored in a Lua integer, use `lib/bn` to pass in `bn("number")` instead. Returned numeric results are always `bn` tables.
 
 ## Contributing
 
