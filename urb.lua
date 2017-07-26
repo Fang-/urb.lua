@@ -28,7 +28,27 @@ urb.nom = {} -- ship names & numbers
 --   => address number
 -- nome ( address number )
 --   => ship name
+-- clan ( ship name or address number (int or bn) )
+--   => "galaxy", "star", "planet", "moon" or "comet"
 --------------------------------------------------------------------------------
+
+function urb.nom.clan(our)
+  local lent
+  if type(our) == "string" then
+    lent = our:gsub("-", ""):gsub("~", ""):len()
+    if lent % 3 ~= 0 then error("weird name "..our) end
+  -- assume integer or bn
+  else
+    our = bn(our)
+    lent = our:len_bytes() * 3
+  end
+  if     lent <= 3  then return "galaxy"
+  elseif lent <= 6  then return "star"
+  elseif lent <= 12 then return "planet"
+  elseif lent <= 24 then return "moon"
+  else                   return "comet"
+  end
+end
 
 function urb.nom.nume(name)
   local nome = name:gsub("-", ""):gsub("~", "")
