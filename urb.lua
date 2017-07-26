@@ -21,6 +21,8 @@ local urb = {
 
 --------------------------------------------------------------------------------
 urb.nom = {} -- ship names & numbers
+-- special thanks to asssaf for writing a similar ++ob implementation in python:
+-- https://github.com/asssaf/urbit-shipyard/blob/master/ob/ob.py
 --------------------------------------------------------------------------------
 -- numtoname ( address number ) => ship name
 -- nametonum ( ship name ) => address number
