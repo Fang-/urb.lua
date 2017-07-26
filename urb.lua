@@ -64,39 +64,18 @@ function urb.nom.nametonum(name)
 end
 
 function urb.nom.numtoname(addr)
-  local minbytes
-  if not minbytes then
-    if addr < bn("256") then
-      minbytes = 1
-    elseif addr < bn("65536") then
-      minbytes = 2
-    elseif addr < bn("4294967296") then
-      minbytes = 4
-    elseif addr < bn("281474976710656") then
-      minbytes = 6
-    elseif addr < bn("18446744073709551616") then
-      minbytes = 8
-    elseif addr < bn("1208925819614629174706176") then
-      minbytes = 10
-    elseif addr < bn("79228162514264337593543950336") then
-      minbytes = 12
-    elseif addr < bn("5192296858534827628530496329220096") then
-      minbytes = 14
-    elseif addr < bn("340282366920938463463374607431768211456") then
-      minbytes = 16
-    else
-      error("address too big")
-    end
-  end
+  addr = bn(addr)
+  local bytes = addr:len_bytes()
+  if bytes > 1 and bytes % 2 == 1 then bytes = bytes + 1 end
   local name = ""
   -- unscramble planet/moon
-  if minbytes >= 4 and minbytes <= 8 then
     local padr = (addr % bn("4294967296"))
+  if bytes >= 4 and bytes <= 8 then
     local nadr = urb.nom.feen(padr)
     addr = addr - padr + nadr
   end
-  for i = 0, minbytes-1 do
     local byte = (addr % bn("256")):asnumber()
+  for i = 0, bytes-1 do
     local syllable
     if i % 2 == 1 then
       syllable = urb.nom.getprefix(byte)
