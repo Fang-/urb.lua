@@ -192,7 +192,7 @@ function urb.nom.rynd(n, l, r)
   if n % 2 == 0 then
     m = 65535
   end
-  res[2] = (l + urb.nom.muk(urb.nom.raku[n], 2, r)) % m
+  res[2] = (l + urb.nom.muk(urb.nom.raku[n], r)) % m
   return res
 end
 
@@ -202,12 +202,12 @@ function urb.nom.rund(n, l, r)
   if n % 2 == 0 then
     m = 65535
   end
-  local h = urb.nom.muk(urb.nom.raku[n], 2, r)
+  local h = urb.nom.muk(urb.nom.raku[n], r)
   res[2] = (m + l - (h%m)) % m
   return res
 end
 
-function urb.nom.muk(syd, len, key)
+function urb.nom.muk(syd, key)
   key = bn(key)
   local lo = key & 255
   local hi = (key & 65280) / 256
