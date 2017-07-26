@@ -24,11 +24,13 @@ urb.nom = {} -- ship names & numbers
 -- special thanks to asssaf for writing a similar ++ob implementation in python:
 -- https://github.com/asssaf/urbit-shipyard/blob/master/ob/ob.py
 --------------------------------------------------------------------------------
--- numtoname ( address number ) => ship name
--- nametonum ( ship name ) => address number
+-- nume ( ship name )
+--   => address number
+-- nome ( address number )
+--   => ship name
 --------------------------------------------------------------------------------
 
-function urb.nom.nametonum(name)
+function urb.nom.nume(name)
   local nome = name:gsub("-", ""):gsub("~", "")
   local lent = nome:len()
   if lent % 3 ~= 0 then error("weird name "..name) end
@@ -63,7 +65,7 @@ function urb.nom.nametonum(name)
   end
 end
 
-function urb.nom.numtoname(addr)
+function urb.nom.nome(addr)
   addr = bn(addr)
   local bytes = addr:len_bytes()
   if bytes > 1 and bytes % 2 == 1 then bytes = bytes + 1 end
