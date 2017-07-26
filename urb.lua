@@ -87,7 +87,7 @@ function urb.nom.nume(name)
   -- planet or moon
   elseif syls >= 4 and syls <= 8 then
     local padr = urb.nom.wordtonum(nome:sub(lent-11, lent-6))
-    padr = padr * 65536
+    padr = padr * 0x10000
     padr = padr + urb.nom.wordtonum(nome:sub(lent-5, lent))
     padr = urb.nom.fend(padr)
     if syls == 4 then
@@ -96,14 +96,14 @@ function urb.nom.nume(name)
     local addr = 0
     for i = 0, syls-6, 2 do
       addr = addr + urb.nom.wordtonum(nome:sub(i*3+1, i*3+6))
-      addr = addr * 65536
+      addr = addr * 0x10000
     end
-    return (addr * 65536) + padr
+    return (addr * 0x10000) + padr
   -- anything else
   else
     local addr = bn(0)
     for i = 0, syls-2, 2 do
-      addr = addr * 65536
+      addr = addr * 0x10000
       addr = addr + urb.nom.wordtonum(nome:sub(i*3+1, i*3+6))
     end
     return addr
@@ -117,12 +117,12 @@ function urb.nom.nome(addr)
   local name = ""
   -- unscramble planet/moon
   if bytes >= 4 and bytes <= 8 then
-    local padr = (addr % 4294967296)
+    local padr = (addr % 0x100000000)
     local nadr = urb.nom.feen(padr)
     addr = addr - padr + nadr
   end
   for i = 0, bytes-1 do
-    local byte = (addr % 256):asnumber()
+    local byte = (addr % 0x100):asnumber()
     local syllable
     if i % 2 == 1 then
       syllable = urb.nom.getprefix(byte)
@@ -136,7 +136,7 @@ function urb.nom.nome(addr)
       name = "-" .. name
     end
     name = syllable .. name
-    addr = addr / 256
+    addr = addr / 0x100
   end
   return name
 end
@@ -185,7 +185,7 @@ function urb.nom.wordtonum(word)
     return 1 * urb.nom.getsuffixindex(word)
   elseif word:len() == 6 then
     local addr = urb.nom.getprefixindex(word:sub(1, 3))
-    addr = addr * 256
+    addr = addr * 0x100
     addr = addr + urb.nom.getsuffixindex(word:sub(4, 6))
     return addr
   else
@@ -194,11 +194,11 @@ function urb.nom.wordtonum(word)
 end
 
 function urb.nom.feen(pyn)
-  if pyn >= 65536 and pyn <= 4294967295 then
-    return 65536 + urb.nom.fice(pyn - 65536)
+  if pyn >= 0x10000 and pyn <= 0xFFFFFFFF then
+    return 0x10000 + urb.nom.fice(pyn - 0x10000)
   end
-  if pyn >= 4294967296 and pyn <= bn("18446744073709552000") then
-    local lo = pyn & 4294967295
+  if pyn >= 0x100000000 and pyn <= bn("18446744073709552000") then
+    local lo = pyn & 0xFFFFFFFF
     local hi = pyn & bn("18446744069414584000")
     return hi | urb.nom.feen(lo)
   end
@@ -206,11 +206,11 @@ function urb.nom.feen(pyn)
 end
 
 function urb.nom.fend(cry)
-  if cry >= 65536 and cry <= 4294967295 then
-    return 65536 + urb.nom.teil(cry - 65536)
+  if cry >= 0x10000 and cry <= 0xFFFFFFFF then
+    return 0x10000 + urb.nom.teil(cry - 0x10000)
   end
-  if cry >= 4294967296 and cry <= bn("18446744073709552000") then
-    local lo = cry & 4294967295
+  if cry >= 0x100000000 and cry <= bn("18446744073709552000") then
+    local lo = cry & 0xFFFFFFFF
     local hi = cry & bn("18446744069414584000")
     return hi | urb.nom.fend(lo)
   end
@@ -218,26 +218,26 @@ function urb.nom.fend(cry)
 end
 
 function urb.nom.fice(nor)
-  local sel = {nor % 65535, nor / 65536}
+  local sel = {nor % 0xFFFF, nor / 0x10000}
   for i = 0, 3 do
     sel = urb.nom.rynd(i, sel[1], sel[2])
   end
-  return 65535 * sel[1] + sel[2]
+  return 0xFFFF * sel[1] + sel[2]
 end
 
 function urb.nom.teil(vip)
-  local sel = {vip % 65535, vip / 65536}
+  local sel = {vip % 0xFFFF, vip / 0x10000}
   for i = 3, 0, -1 do
     sel = urb.nom.rund(i, sel[1], sel[2])
   end
-  return 65535 * sel[1] + sel[2]
+  return 0xFFFF * sel[1] + sel[2]
 end
 
 function urb.nom.rynd(n, l, r)
   local res = {r, 0}
-  local m = 65536
+  local m = 0x10000
   if n % 2 == 0 then
-    m = 65535
+    m = 0xFFFF
   end
   res[2] = (l + urb.nom.muk(urb.nom.raku[n], r)) % m
   return res
@@ -245,9 +245,9 @@ end
 
 function urb.nom.rund(n, l, r)
   local res = {r, 0}
-  local m = 65536
+  local m = 0x10000
   if n % 2 == 0 then
-    m = 65535
+    m = 0xFFFF
   end
   local h = urb.nom.muk(urb.nom.raku[n], r)
   res[2] = (m + l - (h%m)) % m
@@ -256,8 +256,8 @@ end
 
 function urb.nom.muk(syd, key)
   key = bn(key)
-  local lo = key & 255
-  local hi = (key & 65280) / 256
+  local lo = key & 0xFF
+  local hi = (key & 0xFF00) / 0x100
   return urb.nom.murmur3(
            string.char(lo:asnumber())
            .. string.char(hi:asnumber()),
@@ -272,41 +272,41 @@ function urb.nom.murmur3(data, seed)
   local length = data:len()
   local h1 = seed
   local k1
-  local roundedEnd = length & 4294967292
+  local roundedEnd = length & 0xFFFFFFFC
   for i = 0, roundedEnd-1, 4 do
-    k1 = bn(data:byte(i+1) & 255)
-         | ((data:byte(i+2) & 255) << 8)
-         | ((data:byte(i+3) & 255) << 16)
+    k1 = bn(data:byte(i+1) & 0xFF)
+         | ((data:byte(i+2) & 0xFF) << 8)
+         | ((data:byte(i+3) & 0xFF) << 16)
          | ((data:byte(i+4) or 0) << 24)
     k1 = k1 * c1
-    k1 = (k1 << 15) | ((k1 & 4294967295) >> 17)
+    k1 = (k1 << 15) | ((k1 & 0xFFFFFFFF) >> 17)
     k1 = k1 * c2
     h1 = h1 ~ k1
-    h1 = (h1 << 13) | ((h1 & 4294967295) >> 19)
+    h1 = (h1 << 13) | ((h1 & 0xFFFFFFFF) >> 19)
     h1 = h1 * 5 + 3864292196
   end
   k1 = 0
   local val = length & 3
   if val == 3 then
-    k1 = bn(data:byte(roundedEnd+3) & 255) << 16
+    k1 = bn(data:byte(roundedEnd+3) & 0xFF) << 16
   end
   if val == 3 or val == 2 then
-    k1 = k1 | (bn(data:byte(roundedEnd+2) & 255) << 8)
+    k1 = k1 | (bn(data:byte(roundedEnd+2) & 0xFF) << 8)
   end
   if val == 3 or val == 2 or val == 1 then
-    k1 = k1 | (data:byte(roundedEnd+1) & 255)
+    k1 = k1 | (data:byte(roundedEnd+1) & 0xFF)
     k1 = k1 * c1
-    k1 = (k1 << 15) | ((k1 & 4294967295) >> 17)
+    k1 = (k1 << 15) | ((k1 & 0xFFFFFFFF) >> 17)
     k1 = k1 * c2
     h1 = h1 ~ k1
   end
   h1 = h1 ~ length
-  h1 = h1 ~ ((h1 & 4294967295) >> 16)
+  h1 = h1 ~ ((h1 & 0xFFFFFFFF) >> 16)
   h1 = h1 * 2246822507
-  h1 = h1 ~ ((h1 & 4294967295) >> 13)
+  h1 = h1 ~ ((h1 & 0xFFFFFFFF) >> 13)
   h1 = h1 * 3266489909
-  h1 = h1 ~ ((h1 & 4294967295) >> 16)
-  return h1 & 4294967295
+  h1 = h1 ~ ((h1 & 0xFFFFFFFF) >> 16)
+  return h1 & 0xFFFFFFFF
 end
 
 -- urb.nom ---------------------------------------------------------------------
