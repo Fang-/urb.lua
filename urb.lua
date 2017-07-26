@@ -21,6 +21,7 @@ local urb = {
 
 --------------------------------------------------------------------------------
 urb.nom = {} -- ship names & numbers
+-- returned numeric results are always bn.
 -- special thanks to asssaf for writing a similar ++ob implementation in python:
 -- https://github.com/asssaf/urbit-shipyard/blob/master/ob/ob.py
 --------------------------------------------------------------------------------
