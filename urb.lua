@@ -30,6 +30,8 @@ urb.nom = {} -- ship names & numbers
 --   => ship name
 -- clan ( ship name or address number (int or bn) )
 --   => "galaxy", "star", "planet", "moon" or "comet"
+-- sein ( ship name or address number (int or bn) )
+--   => parent name or address number
 --------------------------------------------------------------------------------
 
 function urb.nom.clan(our)
@@ -48,6 +50,29 @@ function urb.nom.clan(our)
   elseif lent <= 24 then return "moon"
   else                   return "comet"
   end
+end
+
+function urb.nom.sein(our)
+  local clan = urb.nom.clan(our)
+  local typ = type(our)
+  if typ == "string" then
+    our = urb.nom.nume(our)
+  end
+  our = bn(our)
+  local bys
+  if     clan == "galaxy" then bys = 0
+  elseif clan == "star"   then bys = 2
+  elseif clan == "planet" then bys = 4
+  elseif clan == "moon"   then bys = 6
+  end
+  local res = bn(0)
+  if bys then
+    res = bn("0x"..our:ashex():sub(-bys))
+  end
+  if typ == "string" then
+    return urb.nom.nome(res)
+  end
+  return res
 end
 
 function urb.nom.nume(name)
