@@ -12,6 +12,10 @@
 --  strings should be no smaller than mit+1 bits
 --  strings should have no leading zero bytes
 
+--  some gotchas to keep in mind when using this:
+--  if you must pass lua numbers > 2^mit, use the atom() constructor!
+--  cue produces deduplicated cells. do not modify them directly!
+
 --TODO
 --  don't use strings as intermediate values, instead explicit byte_arrays_,
 --    then join with table.concat when done. (strings hashed on-create)
@@ -35,7 +39,7 @@ function show(n)
     local o = '';
     local i = #n;
     while i > 0 do
-      o = o .. string.format('%02x', string.byte(n, i));
+      o = o .. string.format('%02x', string.byte(n, i)); --TODO bit.tohex?
       i = i - 1;
       if i > 0 and i % 2 == 0 then
         o = o .. '.'
@@ -46,6 +50,20 @@ function show(n)
     return tostring(n);
   else
     assert(false, 'show: not noun');
+  end
+end
+
+--  atom: make an atom from a lua number or string
+--
+function atom(a)
+  if type(a) == 'string' then
+    return a;
+  elseif type(a) == 'nil' then
+    return 0;
+  elseif type(a) == 'number' then
+    return grow(a);
+  else
+    assert(false, 'atom: not');
   end
 end
 
@@ -68,6 +86,21 @@ end
 function tail(n)
   assert(type(n) == 'table', 'tail: not cell');
   return n.t;
+end
+
+--  eq: test noun equality, unifying if equal
+--
+function eq(a, b)
+  if type(a) ~= type(b) then
+    return false;
+  end
+  if type(a) ~= 'table' then
+    return a == b;
+  else
+    local res = eq(head(a), head(b)) and eq(tail(a), tail(b));
+    if res then b = a; end
+    return res;
+  end
 end
 
 --  curl: string atom to number atom, if it fits
@@ -162,13 +195,26 @@ end
 --  div: integer division
 --
 function div(a, b)
+  assert(b ~= 0, 'div: by zero');
+  if b == 1 then
+    return a;
+  end
   if type(a) == 'number' and type(b) == 'number' then
-    assert(b ~= 0, 'div: by zero');
     return math.floor(a / b);
   else
     a = grow(a);
     b = grow(b);
-    assert(false, 'div: todo');
+    if mod(b, 2) == 0 then
+      return rsh(cons(0, rsh(0, b)), a);
+    else
+      --TODO  lol
+      local c = 0;
+      while lte(b, a) do
+        a = sub(a, b);
+        c = add(c, 1);
+      end
+      return c;
+    end
   end
 end
 
@@ -242,7 +288,7 @@ end
 --  bex: binary exponent
 --
 function bex(a)
-  if a == 0 then return 1; end
+  if a == 0 then return 1; end  --TODO  assumes hygeine
   return mul(2, bex(sub(a, 1)));  --TODO  dec?
 end
 
@@ -250,9 +296,9 @@ end
 --
 function bix(b)
   if type(b) ~= 'table' then
-    return bex(b);
+    return curl(bex(b));
   else
-    return mul(bex(head(b)), tail(b));
+    return curl(mul(bex(head(b)), tail(b)));
   end
 end
 
@@ -261,12 +307,29 @@ end
 function rsh(b, a)
   local z = bix(b);
   if type(a) == 'number' then
-    return math.floor( a / bex( z ) );
-  elseif type(a) == 'string' then
-    if mod(z, 8) == 0 then
-      return string.sub(a, add(1, div(z, 8)));
+    if type(z) == 'number' then
+      return bit.rshift(a, z);
     else
-      return div(a, bex(z));
+      --NOTE  rshifting a number < 2^mit by > 2^mit bits will definitely give 0
+      return 0;
+    end
+  elseif type(a) == 'string' then
+    local s = div(z, 8);
+    assert(type(s) == 'number', 'rsh: s not direct');  --NOTE  see comment in ned()
+    local r = mod(z, 8);
+    assert(type(r) == 'number', 'rsh: r not direct');
+    if r == 0 then
+      return string.sub(a, s+1);
+    else
+      local o = '';
+      while s < #a do
+        local b = string.byte(a, s+1);
+        local n = string.byte(a, s+2) or 0;
+        local p = bit.rshift(b, r) + ( bit.lshift(n, 8 - r) % 0x100 );
+        o = o .. string.char(p);
+        s = s + 1;
+      end
+      return curl(o);
     end
   else
     assert(false, 'rsh: not atom');
@@ -288,15 +351,6 @@ function lsh(b, a)
       return string.rep('\0', div(z, 8)) .. a;  --TODO  safe, right?
     else
       return mul(a, bex(z));
-    --   local i = 1;
-    --   local c = 0;
-    --   local o = '';
-    --   while i <= #a do
-    --     c = add(c, mul(string.byte(i), bex(z)));
-    --     o = o .. string.char(mod(c, 256));
-    --     c = div(c, 256) --TODO
-    --     i = i + 1;
-    --   end
     end
   else
     assert(false, 'lsh: not atom');
@@ -310,15 +364,27 @@ function ned(b, a)
     b = cons(b, 1);
   end
   if type(a) == 'number' then
-    return a % bex( bix(b) );
+    local o = mod(a, bex( bix(b) ));
+    return o;
   elseif type(a) == 'string' then
     if head(b) == 3 and type(tail(b)) == 'number' then
-      return string.sub(a, 1, tail(b));
+      return curl(string.sub(a, 1, tail(b)));
     else
-      local r = bix(b)
+      local s = bix(b);
+      local f = div(s, 8);
+      --TODO  this implies an atom limit! but how else can we string.byte w/ f?
+      --      would be a 2^32 bytes = 4.2 GB bigatom limit...
+      assert(type(f) == 'number', 'ned: bounds!');
+      if f >= #a then return a; end
+      local o = string.sub(a, 1, f);
+      local r = mod(s, 8);
+      if r ~= 0 then
+        o = o .. string.char(ned(cons(0, r), string.byte(a, f+1)));
+      end
+      return curl(o);
     end
   else
-    assert(false, 'end: not atom');
+    assert(false, 'ned: not atom');
   end
 end
 
@@ -395,8 +461,8 @@ function mat(a)
   local b = met(0, a);
   local c = met(0, b);
   local d = cons(0, c-1);
-  return add(add(c, c), b),
-         cat(0, bex(c), mix( ned(d, b), lsh(d, a) ));
+  return cat(0, bex(c), mix( ned(d, b), lsh(d, a) )),
+         add(add(c, c), b);
 end
 
 --  rub: length-decode (value, bitlength)
@@ -428,19 +494,20 @@ function jam(n, i, m)
   if m[n] then
     if type(n) ~= 'table' and lte(met(0, n), met(0, m[n])) then
       local p, q = mat(n);
-      return lsh(0, q), add(1, p), m;
+      return lsh(0, p), add(1, q), m;
     else
       local p, q = mat(m[n]);
-      return mix(3, lsh(cons(0, 2), q)), add(2, p), m;
+      return mix(3, lsh(cons(0, 2), p)), add(2, q), m;
     end
   elseif type(n) == 'number' or type(n) == 'string' then
     m[n] = i;
     local p, q = mat(n);
-    return lsh(0, q), add(1, p), m;
+    return lsh(0, p), add(1, q), m;
   elseif type(n) == 'table' then
     --TODO  figure out how to use cells as keys so we can deduplicate them
     --      perhaps just use the jam value?
     --      but then we'd have to do that for atoms too, which is a bit sad...
+    --  m[n] = i;
     i = add(i, 2);
     local jh, ih, m = jam(head(n), i, m);
     local jt, it, m = jam(tail(n), add(i, ih), m);
@@ -458,7 +525,6 @@ function cue(a, i, m)
   assert(type(a) == 'number' or type(a) == 'string', 'cue: not atom');
   i = i or 0;
   m = m or {};
-
   if 0 == cut(0, i, 1, a) then
     local p, q = rub(add(i, 1), a);
     m[i] = p;
@@ -479,21 +545,29 @@ function cue(a, i, m)
 end
 
 
-local j = jam(0);
-local c = cue(j);
-print(show(j), show(c));
+local testnouns = {
+  { n = 0, j = '2' },
+  { n = 5, j = '184' },
+  { n = cons(5, 5), j = '151265' },
+  { n = cons(cons(5, 5), cons(5, 6)), j = '0x36.2e1b.8b85' },
+  { n = cons(atom(0xffffffffff), atom(0xffffffffff)), j = '0x49ff.ffff.ffff.a201' }
+}
 
-local j = jam(5);
-local c = cue(j);
-print(show(j), show(c));
+for _,t in pairs(testnouns) do
+  local j = jam(t.n);
+  local c = cue(j);
+  print(show(j) == t.j, eq(t.n, c), show(t.n));
+end
 
-local j = jam(cons(5, 5));
-local c = cue(j);
-print(show(j), show(c));
+local s = os.time();
+for i = 1, 100 do
+  for _,t in pairs(testnouns) do
+    local j = jam(t.n);
+    local c = cue(j);
+  end
+end
+print(os.time() - s);
 
-local j = jam(cons(0xffffffffff, 0xffffffffff));
-local c = cue(j);
-print(show(j), show(c));
 
 
 return 0;
