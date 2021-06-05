@@ -12,8 +12,9 @@
 --  strings should be no smaller than mit+1 bits
 --  strings should have no leading zero bytes
 
---  some gotchas to keep in mind when using this:
+--  some of the logic here is rather... optimistic. kepe in mind:
 --  if you must pass lua numbers > 2^mit, use the atom() constructor!
+--  string atoms must not contain leading zero bytes (\0 at tail of string)!
 --  cue produces deduplicated cells. do not modify them directly!
 
 --TODO
@@ -347,10 +348,28 @@ function lsh(b, a)
       return bit.lshift(a, z);
     end
   elseif type(a) == 'string' then
-    if mod(z, 8) == 0 then
-      return string.rep('\0', div(z, 8)) .. a;  --TODO  safe, right?
+    local s = div(z, 8);
+    assert(type(s) == 'number', 'rsh: s not direct');  --NOTE  see comment in ned()
+    local r = mod(z, 8);
+    assert(type(r) == 'number', 'rsh: r not direct');
+    if r == 0 then
+      return string.rep('\0', s) .. a;
     else
-      return mul(a, bex(z));
+      local o = string.rep('\0', s);
+      local i = 0;
+      while i <= #a do
+        local b = string.byte(a, i+1) or 0;
+        local l = string.byte(a, i) or 0;
+        local p = ( bit.lshift(b, r) % 0x100 ) + ( bit.rshift( l, 8 - r ) );
+        i = i + 1;
+        o = o .. string.char(p);
+      end
+      --TODO  above produces leading zero bytes (for exmple, 0^9 'abc')
+      --      feels like an off-by-one...
+      while string.byte(o, #o) == 0 do
+        o = string.sub(o, 1, #o-1);
+      end
+      return curl(o);
     end
   else
     assert(false, 'lsh: not atom');
