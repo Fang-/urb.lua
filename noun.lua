@@ -255,11 +255,17 @@ function mul(a, b)
   local o = 0;
   --TODO  lol
   if lte(a, b) then
+    if a == 2 then
+      return lsh(0, b);
+    end
     while a ~= 0 do
       o = add(o, b);
       a = sub(a, 1);
     end
   else
+    if b == 2 then
+      return lsh(0, a);
+    end
     while b ~= 0 do
       o = add(o, a);
       b = sub(b, 1);
