@@ -73,9 +73,12 @@ function atom(a)
   end
 end
 
---  cons: make a cell from two lua nouns
+--  cons: make a cell from lua nouns
 --
-function cons(h, t)  --TODO  take variable arguments
+function cons(h, t, ...)
+  if select('#', ...) > 0 then
+    t = cons(t, ...);
+  end
   return { h = h, t = t };
   --TODO  metatables? tostring, concat, head, tail...
 end
