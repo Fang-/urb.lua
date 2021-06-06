@@ -73,6 +73,12 @@ function atom(a)
   end
 end
 
+--  wtpt: return true iff n is an atom
+--
+function wtpt(n)
+  return type(n) == 'number' or type(n) == 'string';
+end
+
 --  cons: make a cell from lua nouns
 --
 function cons(h, t, ...)
@@ -489,7 +495,7 @@ end
 --  mat: length-encode (result, bitlength)
 --
 function mat(a)
-  assert(type(a) == 'number' or type(a) == 'string', 'mat: not atom');
+  assert(wtpt(a), 'mat: not atom');
   if a == 0 then
     return 1, 1;
   end
@@ -503,8 +509,8 @@ end
 --  rub: length-decode (value, bitlength)
 --
 function rub(a, b)
-  assert(type(a) == 'number' or type(a) == 'string', 'rub: a not atom');
-  assert(type(b) == 'number' or type(b) == 'string', 'rub: b not atom');
+  assert(wtpt(a), 'rub: a not atom');
+  assert(wtpt(b), 'rub: b not atom');
   local c = 0;
   local m = met(0, b);
   assert(lte(c, m), 'rub: invalid?');
@@ -534,7 +540,7 @@ function jam(n, i, m)
       local p, q = mat(m[n]);
       return mix(3, lsh(cons(0, 2), p)), add(2, q), m;
     end
-  elseif type(n) == 'number' or type(n) == 'string' then
+  elseif wtpt(n) then
     m[n] = i;
     local p, q = mat(n);
     return lsh(0, p), add(1, q), m;
@@ -557,7 +563,7 @@ end
 --  cue: unpack a lua atom into a lua noun
 --
 function cue(a, i, m)
-  assert(type(a) == 'number' or type(a) == 'string', 'cue: not atom');
+  assert(wtpt(a), 'cue: not atom');
   i = i or 0;
   m = m or {};
   if 0 == cut(0, i, 1, a) then
