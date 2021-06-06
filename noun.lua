@@ -7,7 +7,7 @@
 --  a string (atom) is a natural number represented as a bytestring, LSB first
 --  a table (cell) contains two lua nouns: { h, t }
 
---  lua atom handling functions should maintain the following invariants:
+--  lua atoms should maintain the following invariants:
 --  - numbers should be no bigger than mit bits
 --  - strings should be no smaller than mit+1 bits
 --  - strings should have no leading zero bytes
@@ -23,7 +23,9 @@
 --    turns out that, in luajit, in our context, this is actually a bit slower!
 
 --TODO
---  stay aware of perf gotchas...
+--  - ot() should be structured like the other functions so it can nest.
+--    also, needing to pass a table for inserting is awkward for simple cases...
+--  - stay aware of perf gotchas...
 
 --NOTE  provided by luajit
 local bit = require("bit");
@@ -585,6 +587,103 @@ function cue(a, i, m)
   end
 end
 
+--  ot: takes any number of f(n, t) (that insert n into t),
+--      produces a function which parses a noun into a table.
+--
+function ot(n, ...)
+  local t = {};
+  local i = 1;
+  while i <= select('#', ...) do
+    local f = select(i, ...);
+    assert(n ~= 'nil', 'ot: noun too small ' .. i);
+    if wtpt(n) then
+      f(n, t);
+      n = nil;
+    else
+      f(head(n), t);
+      n = tail(n);
+    end
+    i = i + 1;
+  end
+  return t;
+end
+
+--  ar: list noun to array table
+--
+function ar(i, f)
+  return function(n, t)
+    local l = {};
+    local j = 1;
+    while not wtpt(n) do
+      f(j)(head(n), l);
+      j = j + 1;
+      n = tail(n);
+    end
+    t[i] = l;
+    return t;
+  end
+end
+
+--  no: atom, number or string
+--
+function no(i)
+  return function(n, t)
+    assert(wtpt(n), 'no: not atom');
+    t[i] = n;
+    return t;
+  end
+end
+
+--  ni: atom, number
+--
+function ni(i)
+  return function(n, t)
+    assert(type(n) == 'number', 'no: not number');
+    t[i] = n;
+    return t;
+  end
+end
+
+--  ni: atom, as string
+--
+function so(i)
+  return function(n, t)
+    assert(wtpt(n), 'so: not number');
+    t[i] = grow(n);
+    return t;
+  end
+end
+
+--  nop: no-op
+--
+function nop()
+end
+
+
+--TMP
+function pt(t, l)
+  l = l or 0;
+  local d = string.rep(' ', l*2);
+  print(d .. 'table: {', t);
+  for k,v in pairs(t) do
+    if type(v) == 'table' then
+      print(d .. '  ' .. k .. ' =');
+      pt(v, l+1);
+    else
+      print(d .. '  ' .. k .. ' = ' .. tostring(v));
+    end
+  end
+  print(d .. '}');
+end
+
+
+
+local n = cons(0, 'nick', cons('blu', 'red', 0), 3, 456, 7, 8);
+--  [~zod 'nick' ['blu' 'red' ~] 3 456 7 8]
+local t = ot(n, no('p'), so('name'), ar('colors', so), nop, ni('life'));
+--  { p = 0, name = 'nick', colors = { 'blu', 'red' }, life = 456 }
+print(show(n));
+pt(t);
 
 local testnouns = {
   { n = 0, j = '2' },
