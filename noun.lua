@@ -3,33 +3,38 @@
 --  a cell is an ordered pair of nouns
 --
 --  a lua noun is a number (direct atom), string (indirect atom), or table (cell)
---  a number (atom) is a natural number that fits in 53 bits  --TODO 32?
+--  a number (atom) is a natural number that fits in 32 bits  --TODO 32?
 --  a string (atom) is a natural number represented as a bytestring, LSB first
 --  a table (cell) contains two lua nouns: { h, t }
 
 --  lua atom handling functions should maintain the following invariants:
---  numbers should be no bigger than mit bits
---  strings should be no smaller than mit+1 bits
---  strings should have no leading zero bytes
+--  - numbers should be no bigger than mit bits
+--  - strings should be no smaller than mit+1 bits
+--  - strings should have no leading zero bytes
 
---  some of the logic here is rather... optimistic. kepe in mind:
---  if you must pass lua numbers > 2^mit, use the atom() constructor!
---  string atoms must not contain leading zero bytes (\0 at tail of string)!
---  cue produces deduplicated cells. do not modify them directly!
+--  some of the logic here is rather... optimistic. keep in mind:
+--  - if you must pass lua numbers > 2^mit, use the atom() constructor!
+--  - string atoms must not contain leading zero bytes (\0 at tail of string)!
+--  - cue produces deduplicated cells. do not modify them directly!
+
+--  lessons learned:
+--  - traditional lua wisdom says to avoid repeated string concatenation,
+--    instead building a table and doing table.concat at the end.
+--    turns out that, in luajit, in our context, this is actually a bit slower!
 
 --TODO
---  don't use strings as intermediate values, instead explicit byte_arrays_,
---    then join with table.concat when done. (strings hashed on-create)
---  (does that even apply to luajit?)
---  stay aware of other perf gotchas...
+--  stay aware of perf gotchas...
 
 --NOTE  provided by luajit
---TODO  but... these are 32-bit signed integers. should that be our global max?
 local bit = require("bit");
 
 --  mit: max direct atom bit-width
+--  myt: max direct atom byte-width
+--  man: max direct atom
 --
 local mit = 32;
+local myt = math.floor( mit / 8 );
+local man = math.pow(2, mit) - 1;
 
 --  show: noun to string representation
 --
@@ -110,7 +115,7 @@ function curl(a)
   if type(a) == 'number' then return a; end
   assert(type(a) == 'string', 'curl: not string atom');
   --TODO  check last byte, met(0, a)
-  if #a <= math.floor( mit / 8 ) then
+  if #a <= myt then
     return coil(a);
   else
     return a;
@@ -123,7 +128,7 @@ function coil(a)
   if type(a) == 'number' then return a; end
   assert(type(a) == 'string', 'coil: not string atom');
   --TODO  check last byte, met(0, a)
-  assert(#a <= math.floor( mit / 8 ), 'coil: atom too big');
+  assert(#a <= myt, 'coil: atom too big');
   local b = 0;
   for i=1,#a do
     b = b + ( string.byte(a, i) * math.pow(256, i-1) );
@@ -393,6 +398,8 @@ function ned(b, a)
       local f = div(s, 8);
       --TODO  this implies an atom limit! but how else can we string.byte w/ f?
       --      would be a 2^32 bytes = 4.2 GB bigatom limit...
+      --      we might be able to do 2^53 if context allows,
+      --      by having a forceCoil() that asserts it's commutative.
       assert(type(f) == 'number', 'ned: bounds!');
       if f >= #a then return a; end
       local o = string.sub(a, 1, f);
